@@ -114,7 +114,7 @@ struct sockaddr
 }
 ```
 
-### 网路字节序与地址变换
+### 3.3网路字节序与地址变换
 
 不同CPU，在内存空间中保存4字节整数型值1的方式不同。
 
@@ -158,5 +158,195 @@ unsigned short htons(unsigned short);
 unsigned short ntohs(unsigned short);
 unsigned long htonl(unsigned long);
 unsigned long ntohl(unsigned long);
+```
+
+h:host n:network s:short l:long
+
+ntohs:把short型数据从网络字节序转化为主机字节序
+
+### 3.4 网络地址的初始化与分配
+
+#### 将字符串信息转换为网络字节序的整数型
+
+sockaddr_in 中保存地址信息的成员为32位整数型，所有需要将IP地址转换为32位整数型数据
+
+##### inet_addr函数
+
+将字符串形式的IP地址转换为32位整数型
+
+```c
+#include <arpa/inet.h>
+
+// 成功返回32位大端序整数型值，失败返回 INADDR_NONE
+int_addr_t inet_addr(const char *string);
+```
+
+```c
+#include <stdio.h>
+#include <arpa/inet.h>
+
+int main(int argc, char *argv[])
+{
+    char *addr1 = "1.2.3.4";
+    char *addr2 = "1.2.3.256"; // 1个字节表示的最大整数为255，该IP地址错误
+
+    unsigned long conv_addr = inet_addr(addr1);
+    if (conv_addr == INADDR_NONE)
+        printf("Error occured! \n");
+    else
+        // 0x4030201
+        printf("Network ordered integer addr: %#lx \n", conv_addr);
+
+    conv_addr = inet_addr(addr2);
+    if (conv_addr == INADDR_NONE)
+        printf("Error occured! \n");
+    else
+        printf("Network ordered integer addr: %#lx \\nn", conv_addr);
+    return 0;
+}
+```
+
+输出 0x4030201
+
+从输出结果可以验证确实转换为网络字节序
+
+##### inet_aton函数
+
+与 inet_addr函数功能完全相同，只不过利用了in_addr结构体，使用频率最高
+
+```c
+#include <arpa/inet.h>
+
+// string: IP地址字符串地址
+// addr: 保存转换结构的in_addr结构体变量的地址值
+// 成功返回 1，失败返回 0
+int_addr_t inet_aton(const char *string, struct in_addr *addr);
+```
+
+ 实际编程中若要调用 inet_addr函数,需将转换后的IP地址信息代入sockaddr_in结构体中声明的 in_addr结构体变量。而 Inet_aton函数则不需此过程。原因在于,若传递 in_addr结构体变量地址值,函数会自动把结果填入该结构体变量。通过示例了解 inet_aton函数调用过程。
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+
+void error_handling(char *message);
+
+int main(int argc, char *argv)
+{
+    char *addr = "127.233.124.79";
+    struct sockaddr_in addr_inet;
+
+    // 转换后的IP地址信息需保存到sockaddr_in的in_addr型变量才有意义
+    // inet_aton函数的第二个参数呀求得到in_addr型的变量地址值，省去了手动保存IP地址信息的过程
+    if (!inet_aton(addr, &addr_inet.sin_addr))
+        error_handling("Conversion error");
+    else
+        printf("Network ordered integer addr: %#x \n", addr_inet.sin_addr.s_addr);
+        // Network ordered integer addr: 0x4f7ce97f
+    return 0;
+}
+
+void error_handling(char *message)
+{
+    fputs(message, stderr);
+    fputc('\n', stderr);
+    exit(1);
+}
+```
+
+##### inet_ntoa函数
+
+与inet_aton 函数正好相反，是将网络字节序整数型IP地址转换成我们熟悉的字符串形式
+
+```c
+#include <arpa/inet.h>
+
+// 成功返回转换的字符串地址值，失败返回 -1
+char * inet_ntoa(struct in_addr addr);
+```
+
+#### 网络地址初始化（服务器端）
+
+套接字创建过程中常见的网络地址信息初始化方法
+
+```c
+struct sockaddr_in addr;
+char *serv_ip = "211.217.168.13";			// 声明IP地址字符串
+cahr *serv_port = "9190";					// 声明端口号字符串
+memset(&addr, 0, sizeof(addr));				// 就够提变量addr的所有成员初始化为0
+addr.sin_family = AF_INET;					// 指定地址族
+addr.sin_addr.s_addr = inet_addr(serv_ip);	// 基于字符串的IP地址初始化
+addr.sin_port = htons(atoi(serv_port));		// 基于字符串的端口号初始化 字符串转换为整型
+```
+
+利用字符串格式的IP地址和端口号初始化了sockaddr_in结构体变量
+
+#### 客户端地址信息初始化
+
+声明sockaddr_in结构体，并初始化要与之连接的服务器端套接字的IP和端口号
+
+#### INADDR_ANY
+
+初始化地址信息
+
+```c
+struct sockaddr_in addr;
+char *serv_port = "9190";
+memset(&addr, 0, sizeof(addr));
+addr.sin_family = AF_INET;
+addr.sin_addr.s_addr = htonl(INADDR_ANY);
+addr.sin_port = htons(atoi(serv_port));
+```
+
+利用常数INADDR_ANY分配服务器端的IP地址，自动获取运行服务器短地计算机IP地址
+
+若同一计算机中已分配多个IP地址（多宿主（Multi-homed）计算机，路由器之类）则只要端口一致，就可以从不同IP地址接收数据
+
+服务端优先考虑
+
+
+
+创建服务器端套接字时需要IP地址的原因：
+
+> 同一计算机可以分配多个IP地址，数量与NIC相等，服务器端套接字接受那个IP（NIC传来的）的数据。
+>
+> 若只有一个NIC，直接使用INADDR_ANY
+
+#### 向套接字分配网络地址
+
+已经有了 sockaddr_in 结构体的初始化方法，下面就把初始化的地址信息分配给套接字，操作bind函数
+
+```c
+#include <sys/socket.h>
+
+// sockfd: 要分配地址信息（IP地址和端口号）的套接字文件描述符
+// myaddr: 存有地址信息的结构体变量地址值
+// addrlen： 第二个结构体变量的长度
+// 成功返回0，失败返回-1
+int bind(int sockfd, struct sockadr *myaddr, socklen_t addrlen);
+```
+
+调用成功会把第二个参数指定的地址信息分配给第一个参数中的相应套接字
+
+服务器端常见套接字初始化过程
+
+```c
+int serv_sock;
+struct sockaddr_in serv_addr;
+char *serv_port = "9109";
+
+// 创建服务器端套接字（监听套接字）
+serv_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+// 地址信息初始化
+memset(&serv_addr, 0, sizeof(serv_addr));
+serv_addr.sin_family = AF_INET;
+serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+serv_addr.sin_port = htons(atoi(serv_port));
+
+// 分配地址信息
+bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+......
 ```
 
