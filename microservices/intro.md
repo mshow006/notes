@@ -138,3 +138,25 @@ Monolithic、粒度更小的SOA、分布式系统、架构（语言无关）
 
     又称为契约编程，在OOP语言中，其契约范围包括方法名称、方法入参（类型和顺序）、方法返回值（类型）以及异常情况等元数据。
 
+### 监控（Monitoring And Control）
+
+- DevOps = Dev + Ops
+- Dev In Spring Boot = Services
+- Ops In Spring Boot = Management
+- Management = Endpoints 
+- Endpoints = Monitoring And Control
+
+### JVM
+
+- 通用（General）
+- 线程（Threading）
+- 内存（Memory）
+- 日志（Logging）
+
+### 指标（Metrics）
+
+- Counter：计数器，事件发生的总次数，会员登陆的总次数，cache请求的总次数
+- Gauge：计量表，某一时刻的数据，如仪表盘上的温度、速度等，网络上内存，cup、网络等
+- Meters：事件发生的频率，每分钟发生了多少次，每分钟消费了多少消息，发送了多少消息，Linux下的uptime和top
+- Histogram：柱状图，处理时间的区间值，最大，最小，平均，95%的标准偏差
+- Timers： timer时发生频率和柱状图的组合，如QPS，统计请求的频率，统计每次请求的时间
